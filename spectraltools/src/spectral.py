@@ -3,6 +3,7 @@
 import numpy as np
 import os, subprocess, time
 import src.utils as utils
+from netCDF4 import Dataset
 
 def best_bands(nu_arr:np.ndarray, method:int, nband:int, floor=1.0) -> np.ndarray:
     """Choose the best band edges.
@@ -13,7 +14,7 @@ def best_bands(nu_arr:np.ndarray, method:int, nband:int, floor=1.0) -> np.ndarra
         1 = logspace   \n
         2 = logspace, using a single band to cover long WL \n
         3 = logspace, using a few linear-spaced bands to cover long WL \n
-        4 = piecewise band density (linspace - logspace - logspace) \n
+        4 = piecewise density (linspace - logspace - logspace) \n
         9 = match legacy spectral file (IN THIS CASE nband MUST BE SET TO 318)
 
     Parameters
@@ -65,7 +66,7 @@ def best_bands(nu_arr:np.ndarray, method:int, nband:int, floor=1.0) -> np.ndarra
     if (numax < shrt_cutoff) and (method == 4):
         method = 3
     
-    long_cutoff = 200.0 # [cm-1] Value where the "long wavelength" region starts.
+    long_cutoff = 300.0 # [cm-1] Value where the "long wavelength" region starts.
     if (numin > long_cutoff) and (method in [2,3]):
         method = 1 
     
@@ -157,6 +158,51 @@ def get_cia_pair(fA:str, fB:str):
         if [p_in[1], p_in[0]] == p_check:
             return [p_in[1], p_in[0]]
     return []
+
+
+def read_band_edges(sfpath:str) -> list:
+    """Read the band edges from a spectral file
+
+    Parameters
+    ----------
+    sfpath : str
+        Path to file
+
+    Returns
+    -------
+    list
+        Band edges, ascending in units of [metres]
+    """
+
+    with open(sfpath,'r') as hdl:
+        lines = hdl.readlines()
+    nband = int(  str(lines[2]).split("=")[1].strip()  )
+    band_edgesm = []
+    block_idx:int = -999999999
+    for l in lines:
+        # We want block 1 data
+        if "Band        Lower limit         Upper limit" in l:
+            block_idx = 0 
+        if (block_idx > 0) and ("*END" in l):
+            break 
+        
+        # Read bands
+        if (block_idx > 0):
+            s = [float(ss.strip()) for ss in l.split()[1:]]
+            # First edge
+            if block_idx == 1:
+                band_edgesm.append(s[0])  # Note that these are in units of [metres]
+            # Upper edges
+            band_edgesm.append(s[1])  # [metres]
+
+        # Block index 
+        block_idx += 1
+
+    if len(band_edgesm)-1 != nband:
+        raise Exception("Band edges could not be read from spectral file")
+    
+    return band_edgesm
+
 
 def create_skeleton(alias:str, p_points:np.ndarray, t_points:np.ndarray, volatile_list:list, band_edges:list, dry:bool=False):
     """Create skeleton spectral file.
@@ -286,8 +332,6 @@ def create_skeleton(alias:str, p_points:np.ndarray, t_points:np.ndarray, volatil
     f.write("c \n")
     for i in range(nband,0,-1):
         f.write("%.3f %.3f \n"%(band_edges[i], band_edges[i-1]))
-    # for i in range(nband):
-    #     f.write("%.3f %.3f \n"%(band_edges[i], band_edges[i+1]))
 
     # Set absorbers in each band to zero for now
     f.write("0*%d\n"%nband)
@@ -315,7 +359,7 @@ def create_skeleton(alias:str, p_points:np.ndarray, t_points:np.ndarray, volatil
     print("    done writing to '%s' \n"%skel_path)
     return skel_path
 
-def calc_kcoeff_lbl(alias:str, formula:str, nc_xsc_path:str, nband:int,  dry:bool=False):
+def calc_kcoeff_lbl(alias:str, formula:str, nc_xsc_path:str, dry:bool=False):
     """Calculate k-coefficients for line absorption
 
     Takes netCDF file containing cross-sections as input. Outputs k-terms at given p,t points and bands specified in the skeleton file
@@ -328,8 +372,6 @@ def calc_kcoeff_lbl(alias:str, formula:str, nc_xsc_path:str, nband:int,  dry:boo
         Formula of absorber
     nc_xsc_path : str
         Input netCDF file containing cross-section data for range of p,t,nu
-    nband : int
-        Number of bands (THIS MUST MATCH THE SKELETON FILE)
 
     dry : bool
         Dry run?
@@ -374,18 +416,39 @@ def calc_kcoeff_lbl(alias:str, formula:str, nc_xsc_path:str, nband:int,  dry:boo
     mapping_path = os.path.join(utils.dirs["output"],"%s_%s_map.nc"% (alias,formula)); utils.rmsafe(mapping_path)
     logging_path = os.path.join(utils.dirs["output"],"%s_%s.log"%    (alias,formula)); utils.rmsafe(logging_path)
 
+    # Check wavelength range for this volatile
+    nc_ds = Dataset(nc_xsc_path,'r')
+    nc_nu = np.array(nc_ds.variables['nu'][:], dtype=float) / 100.0 # convert m-1 to cm-1
+    vol_wlmin = utils.wn2wl(nc_nu[-1]) * 1.0e-9 # convert nm to m
+    vol_wlmax = utils.wn2wl(nc_nu[0])  * 1.0e-9 # convert nm to m
+
+    # Read band edges [m]
+    band_edgesm = read_band_edges(skel_path)
+    nband = len(band_edgesm)-1
+
+    # Get band range for this volatile
+    vol_bands = []  # list of allowed bands
+    for i in range(0,nband):
+        b_lo = band_edgesm[i]      # short WL edge
+        b_hi = band_edgesm[i+1]    # long WL edge
+        if (vol_wlmin <= b_lo) and (vol_wlmax >= b_hi):  # if this band is entirely within volatile's domain
+            vol_bands.append(i+1)
+    iband = [ min(vol_bands) , max(vol_bands)] 
+    iband_revrev = [ nband-iband[1]+1 , nband-iband[0]+1 ]
+    print("    band limits: " + str(iband_revrev))
+
     # Open executable file for writing
     exec_file_name = os.path.join(utils.dirs["output"],"%s_make_%s.sh"%(alias,formula)); utils.rmsafe(exec_file_name)
     f = open(exec_file_name, 'w+')
 
     f.write("Ccorr_k")
     f.write(" -F %s"%pt_lbl)                  # (Input) Pathname of file containing pressures and temperatures at which to calculate coefficients. 
-    f.write(" -R 1 %d"%nband)                 # The range of spectral bands to be used 
+    f.write(" -R %d %d"%(iband[0],iband[1]))  # The range of spectral bands to be used 
     f.write(" -l %s %.3e"%(absid, max_path))  # Generate line absorption data. gas is the type number (identifier) of the gas to be considered. max−path is the maximum absorptive pathlength (kg/m2) for the gas
 
     match tol_type:
         case 'n': f.write(" -n 20")         # Use this many k-terms
-        case 't': f.write(" -t 1.0e-3")     # Calculate k-terms needed to keep RMS error in the transmission below this value
+        case 't': f.write(" -t 5.0e-4")     # Calculate k-terms needed to keep RMS error in the transmission below this value
         case 'b': f.write(" -b 1.0e-2")     # Calculate k-terms according to where absorption scaling peaks, keeping the maximum transmission error below this value
 
     f.write(" -s %s"%skel_path)         # (Input) Path to skeleton spectral file (used to provide the spectral bands - will not be overwritten)
@@ -415,10 +478,11 @@ def calc_kcoeff_lbl(alias:str, formula:str, nc_xsc_path:str, nband:int,  dry:boo
 
     # Check logfile
     with open(logging_path,'r') as hdl:
-        if "Execution ends" not in str(hdl.read()):
-            print("-------------------------------------------")
-            print("WARNING: An error may have occurred! Check logfile.")
-            print("-------------------------------------------")
+        logstr = str(hdl.read())
+    if ("Execution ends" not in logstr) or ("Failure to converge in" in logstr):
+        print("-------------------------------------------")
+        print("WARNING: An error may have occurred! Check logfile.")
+        print("-------------------------------------------")
 
     return kcoeff_path
 
@@ -483,29 +547,8 @@ def calc_kcoeff_cia(alias:str, formula_A:str, formula_B:str, dnu:float, dry:bool
             raise Exception("File not found: '%s'"%f)
     
     # Read skeleton file for bands...
-    with open(skel_path,'r') as hdl:
-        lines = hdl.readlines()
-    nband = int(  str(lines[2]).split("=")[1].strip()  )
-    band_edgesm = []
-    block_idx:int = -999999999
-    for l in lines:
-        # We want block 1 data
-        if "Band        Lower limit         Upper limit" in l:
-            block_idx = 0 
-        if (block_idx > 0) and ("*END" in l):
-            break 
-        
-        # Read bands
-        if (block_idx > 0):
-            s = [float(ss.strip()) for ss in l.split()[1:]]
-            # First edge
-            if block_idx == 1:
-                band_edgesm.append(s[0])  # Note that these are in units of [metres]
-            # Upper edges
-            band_edgesm.append(s[1])  # [metres]
-
-        # Block index 
-        block_idx += 1
+    band_edgesm = read_band_edges(skel_path)
+    nband = len(band_edgesm)-1
 
     # Band range
     iband = [1, nband]

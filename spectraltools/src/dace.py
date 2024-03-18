@@ -74,16 +74,18 @@ def download(isotopologue:str, linelist:str, linelist_version:float, p_arr, t_ar
         sp = subprocess.run(["tar","-xvf",tarpath,"--strip-components=1"], stdout=subprocess.DEVNULL)
         os.chdir(oldcwd)
 
-        # Copy ref file
+        # Write database/reference info to file
         if ip == 0:
-            refpath = glob.glob(tmpdir+"/*.ref")[0]
-            infpath = os.path.join(outdir, "info.txt")
-            utils.rmsafe(infpath)
-            if os.path.exists(refpath):
+            infpath = os.path.join(outdir, "info.txt"); utils.rmsafe(infpath)
+
+            refpath = glob.glob(tmpdir+"/*.ref")
+            if len(refpath) > 0:
+                refpath = refpath[0]
                 with open(refpath, 'r') as hdl:
                     reflines = hdl.readlines()
             else:
-                reflines = "[No literature references found]\n"
+                reflines = ["[No literature references found]\n"]
+
             with open(infpath, 'w') as hdl:
                 hdl.write(isotopologue + "\n")
                 hdl.write(formula + "\n")
@@ -241,6 +243,7 @@ def map_ptf(directory:str, p_targets:list=[], t_targets:list=[], allow_itp:bool=
     """
 
     print("Mapping p,t points")
+    print("    searching in '%s'"%directory)
 
     # Get all points
     all_p, all_t, all_f = list_all_ptf(directory, allow_itp=allow_itp)

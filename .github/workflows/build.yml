@@ -17,6 +17,10 @@ jobs:
           sudo apt update 
           sudo apt-get install libnetcdff-dev netcdf-bin gfortran gcc
 
+      - name: List gfortran defaults
+        run: |
+          gfortran -v
+
       - name: Build
         run: |
           export LD_LIBRARY_PATH=""

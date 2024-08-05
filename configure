@@ -2,7 +2,7 @@
 # Script to generate Mk_cmd for socrates
 
 # Optimisation flags options (uncomment as required)
-optim="-Ofast -march=native"
+optim="-Ofast -march=x86-64 -static -fbacktrace"
 # optim="-O3"
 # optim=""
 

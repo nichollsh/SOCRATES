@@ -2,7 +2,8 @@ name: Compile SOCRATES
 
 on:
   push:
-    branches: [main]
+    branches: 
+      - main
 
 jobs:
   install:
@@ -16,10 +17,26 @@ jobs:
           sudo apt update 
           sudo apt-get install libnetcdff-dev netcdf-bin gfortran gcc
 
-      - name: SOCRATES
+      - name: Build
         run: |
           export LD_LIBRARY_PATH=""
           ./configure
           ./build_code 
           source set_rad_env 
           
+      - name: Zip
+        run: |
+          zip -r socrates-${{ runner.os }} .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: socrates-${{ runner.os }}.zip
+          path: socrates-${{ runner.os }}.zip
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: socrates-${{ runner.os }}.zip
+          body_path: version

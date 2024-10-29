@@ -1,12 +1,12 @@
 # Generated automatically
-# System: Darwin hnmacbook 23.6.0 Darwin Kernel Version 23.6.0: Wed Jul 31 20:49:39 PDT 2024; root:xnu-10063.141.1.700.5~1/RELEASE_ARM64_T6000 arm64 
-# Date: Fri 11 Oct 2024 20:47:04 BST 
+# System: Linux atmlxint6.atm.ox.ac.uk 5.4.0-193-generic #213-Ubuntu SMP Fri Aug 2 19:14:16 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux 
+# Date: Tue 29 Oct 12:02:19 GMT 2024 
  
-FORTCOMP        = /opt/homebrew/bin/gfortran -Ofast -march=native -fPIC -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/ -c 
-LINK            = /opt/homebrew/bin/gfortran -Ofast -march=native -fPIC -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/ 
+FORTCOMP        = /usr/bin/gfortran -Ofast -march=native -fPIC  -c 
+LINK            = /usr/bin/gfortran -Ofast -march=native -fPIC  
 LIBLINK         = /usr/bin/ar rvu 
-INCCDF_PATH     = /opt/homebrew/Cellar/netcdf-fortran/4.6.1/include -I/opt/homebrew/Cellar/netcdf-fortran/4.6.1/include -I/opt/homebrew/Cellar/netcdf-fortran/4.6.1/include 
-LIBCDF_PATH     = /opt/homebrew/Cellar/netcdf-fortran/4.6.1/lib 
+INCCDF_PATH     = /usr/include -I/usr/include 
+LIBCDF_PATH     = /usr/lib/x86_64-linux-gnu 
 LIBCDF_NAME     = netcdff 
 OMPARG          = -fopenmp 
  

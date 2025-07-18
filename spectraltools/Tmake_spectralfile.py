@@ -15,19 +15,20 @@ def main():
 
     # ------------ PARAMETERS ------------
     source = "dace"             # Source database (DO NOT CHANGE)
-    vols = ["H2O"] #, "H2", "CO2", "CO", "CH4", "N2", "NH3", "SO2", "N2O", "O3", "HCN", "H2S"]   # List of gases
-    alias = "test"         # Alias for this spectral file
-    nband = 128                 # Number of wavenumber bands
+    vols = ['N2']#["CO2", "H2O"]#, "H2", "CO2", "CO", "CH4", "N2", "NH3", "SO2", "N2O", "O3", "HCN", "H2S"]   # List of gases
+    alias = "testing"         # Alias for this spectral file
+    nband = 96                 # Number of wavenumber bands
     drops = True  # include water droplet scattering?
     method = 3     # band selection method
-    numax = 1000  # clip to this maximum wavenumber [cm-1]
+    numax = 100000.0 #1999800 #10000000  # clip to this maximum wavenumber [cm-1]
     numin = 1.0    # clip to this minimum wavenumber [cm-1]
-    dnu   = 0.0    # downsample to this wavenumber resolution [cm-1]
+    dnu   = 1.0    # downsample to this wavenumber resolution [cm-1]
     preNC = False   # use pre-existing netCDF files in output/ if they are found
 
-    tgt_p = np.logspace(-3.5, 3, 4)
-    tgt_t = np.linspace(100.0, 2895.0, 3)
+    tgt_p = np.logspace(-3.5, 3, 10)
+    tgt_t = np.linspace(100.0, 2895.0, 10)
 
+    print('here #1')
     # P_grid_low  = np.logspace(-6, -2, num=5, endpoint=False)
     # P_grid_high = np.logspace(-2, 3, num=45, endpoint=True)
     # tgt_p      = np.concatenate((P_grid_low, P_grid_high), axis=0)
@@ -36,7 +37,7 @@ def main():
     # ------------------------------------
 
 
-
+    print('here #2')
 
 
     # ------------ EXECUTION -------------
@@ -96,6 +97,7 @@ def main():
         formula_path = os.path.join(utils.dirs[source], v+"/")
         temp_xc = cross.xsec(v, source, dace.list_files(formula_path)[0])
         temp_xc.read(numin=numin, numax=numax, dnu=dnu)
+        temp_xc.plot(yunits=0, xmin=1, xmax=1e5)
 
         #     get numin, numax
         vol_numin = np.amin(temp_xc.get_nu())
@@ -120,7 +122,7 @@ def main():
     numax = min(numax, dat_numax)
     print("    numin, numax set to %.1f, %.1f cm-1 \n"%(numin, numax)) # Set the nu limits to encompass all volatile nus (least restrictive)
 
-
+    print('here #3')
     # ===========
     # Determine p,t grid using last of the absorbers
     formula_path = os.path.join(utils.dirs[source], vols[-1]+"/")
@@ -130,7 +132,7 @@ def main():
     # ===========
     # Get nu array for required range and resolution (also using last absorber)
     nu_arr = cross.xsec(vols[-1], source, dace.list_files(formula_path)[0]).read(numin=numin, numax=numax, dnu=dnu).get_nu()
-
+    #nu_arr = np.concatenate((np.array(range(0, 283)), nu_arr), axis=0
 
     # ===========
     # Determine bands

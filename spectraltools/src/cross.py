@@ -4,7 +4,7 @@
 import numpy as np
 import struct, os, io
 
-# Files 
+# Files
 import src.phys as phys
 import src.utils as utils
 
@@ -36,7 +36,7 @@ class xsec():
         self.numax  = -1.0      # Wavenumber max [cm-1]
         self.nbins  = -1        # Quantity of wavenumber bins
 
-        # The data itself 
+        # The data itself
         self.arr_k  = np.array([])  # Cross-sections [cm2 g-1]
         self.arr_nu = np.array([])  # Wavenumbers [cm-1]
 
@@ -45,7 +45,7 @@ class xsec():
         if not self.loaded:
             raise Exception("Cannot get nu values from unloaded xsec object")
         return self.arr_nu
-    
+
     # Get k
     def get_k(self) -> np.ndarray:
         if not self.loaded:
@@ -64,14 +64,14 @@ class xsec():
         if splt[3][0] == 'n':
             self.p = 10.0**(-1.0 * exp)  # bar
         elif splt[3][0] == 'p':
-            self.p = 10.0**(+1.0 * exp)  # bar 
+            self.p = 10.0**(+1.0 * exp)  # bar
         else:
             raise Exception("Cannot parse DACE filename pressure value")
-        
+
         return self
 
     # Read DACE bin file
-    def readbin(self, numin=0.0, numax=np.inf, dnu=0.0):
+    def readbin(self, numin=0.0, numax=np.inf, dnu=10):
 
         if not (self.source == "dace"):
             print("WARNING: Cannot execute readbin because source (%s) is not DACE" % self.source)
@@ -81,14 +81,14 @@ class xsec():
             raise Exception("This xsec object already contains data")
         if not os.access(self.fname, os.R_OK):
             raise Exception("Cannot read file '%s'" % self.fname)
-        
-        # get number of bins 
+
+        # get number of bins
         nbins = 0
         with open(self.fname, "rb") as hdl:
             hdl.seek(0, io.SEEK_END)
             nbins = int(hdl.tell()/4)
 
-        # check value is reasonable 
+        # check value is reasonable
         if (nbins < 100) or (nbins > 1e12):
             raise Exception("Error reading DACE file; too many/few bins.")
         self.nbins = nbins
@@ -98,7 +98,7 @@ class xsec():
         with open(self.fname, "rb") as hdl:
             for _ in range(nbins):
                 k_read.append(struct.unpack('f', hdl.read(4))[0])  # 4 bytes at a time (Float32)
-                
+
         # Check lengths
         if len(k_read) != self.nbins:
             raise Exception("Invalid array length when reading DACE bin file")
@@ -112,25 +112,53 @@ class xsec():
         tmp_nu = []
         tmp_k  = []
         nulast = -999999999.0
-        for i,nu in enumerate(np.arange(self.numin, self.numax, res)):
+        for i, nu in enumerate(np.arange(self.numin, self.numax, res)):
             if (numin <= nu <= numax) and (nu + dnu > nulast):
                 tmp_nu.append(nu)
                 tmp_k.append(k_read[i])
                 nulast= nu
 
+        # Upload the wavenumbers and cross-sections at the UV range
+        def UV_list(formula:str, dace_nu:list, wavelength_min=100):
+
+            import src.nogit_uvspectra as UV
+            wavenumber, xsec = UV.readUV(formula)
+
+            nu_UV = np.array(wavenumber)
+            xsec_UV = np.array(xsec)
+
+            wvb_min = 1e7/wavelength_min
+            condition = (nu_UV <= wvb_min) & (nu_UV >= dace_nu[-1])
+
+            nu_new = nu_UV[condition]
+            xsec_new = xsec_UV[condition]
+
+            return nu_new.tolist(), xsec_new.tolist()
+
+        #print(tmp_k[0], tmp_k[-1], tmp_nu[0], tmp_nu[-1])
+        #print(len(tmp_k), len(tmp_nu))
+
+        nu_UV, xsec_UV = UV_list(self.form, tmp_nu)
+
+        tmp_nu = tmp_nu + nu_UV # Adding to the dace wavenumbers
+        tmp_k = tmp_k + xsec_UV # Adding to the dace cross-sections
+
+        #print(tmp_k[0], tmp_k[-1], tmp_nu[0], tmp_nu[-1])
+        #print(len(tmp_k), len(tmp_nu))
+
         self.arr_k = np.clip(np.array(tmp_k, dtype=float), a_min=self.k_clip, a_max=None)
         self.arr_nu = np.array(tmp_nu, dtype=float)
         self.numin = self.arr_nu[0]
         self.numax = self.arr_nu[-1]
-        self.nbins = len(self.arr_nu )
+        self.nbins = len(self.arr_nu)
 
-        # Check resolution 
+        # Check resolution
         eps = 1.0e-8  # numerical precision
         if (self.arr_nu[5] - self.arr_nu[4] - res) > eps:
             raise Exception("Wavenumber resolution mismatch. Either file size is wrong, or resolution is not %g cm-1" % res)
 
-        # Flag as loaded 
-        self.loaded = True 
+        # Flag as loaded
+        self.loaded = True
         return self
 
     # Read HITRAN xsc file
@@ -143,23 +171,23 @@ class xsec():
             raise Exception("This xsec object already contains data")
         if not os.access(self.fname, os.R_OK):
             raise Exception("Cannot read file '%s'" % self.fname)
-        
+
         # Read file
         with open(self.fname,'r') as hdl:
            content = hdl.readlines()
         head = content[0]
         body = content[1:]
 
-        # Process header 
+        # Process header
         i = 20
         self.numin = float(head[i:i+10]);   i += 10
         self.numax = float(head[i:i+10]);   i += 10
         self.nbins = int(  head[i:i+7 ]);   i += 7
         self.t     = float(head[i:i+7 ]);   i += 7
         self.p     = float(head[i:i+6 ]);   i += 6
-        self.p /= 750.06 # convert torr to bar 
-        
-        # Process body 
+        self.p /= 750.06 # convert torr to bar
+
+        # Process body
         raw_data = np.array([],dtype=float)
         for b in body:
             raw_data = np.append(raw_data, [float(v) for v in b.split()])
@@ -170,8 +198,8 @@ class xsec():
         self.nbins = len(self.arr_k)
         self.arr_nu =  np.linspace(self.numin, self.numax, self.nbins)
 
-        # Flag as loaded 
-        self.loaded = True 
+        # Flag as loaded
+        self.loaded = True
         return self
 
     # Read ExoMol sigma file
@@ -184,7 +212,7 @@ class xsec():
             raise Exception("This xsec object already contains data")
         if not os.access(self.fname, os.R_OK):
             raise Exception("Cannot read file '%s'" % self.fname)
-    
+
         # Exomol values are always at zero pressure
         self.p = 0.0
 
@@ -192,9 +220,9 @@ class xsec():
         splt = self.fname[:-6].split("_")
         self.t = float(splt[2][:-1])
 
-        data = np.loadtxt(self.fname).T 
+        data = np.loadtxt(self.fname).T
         self.arr_nu = data[0]
-        self.arr_k  = data[1] * phys.N_av / (self.mmw * 1000.0) 
+        self.arr_k  = data[1] * phys.N_av / (self.mmw * 1000.0)
         self.arr_k  = np.clip(self.arr_k, a_min=self.k_clip, a_max=None)
         self.nbins  = len(data[0])
 
@@ -226,7 +254,7 @@ class xsec():
 
         if len(nu_arr) != len(k_arr):
             raise Exception("nu and k arrays have different lengths")
-        
+
         tmp_nu = []
         tmp_k  = []
         nulast = -999999999.0
@@ -236,7 +264,7 @@ class xsec():
                 tmp_k.append(k_arr[i])
                 nulast= nu
 
-        self.p = p 
+        self.p = p
         self.t = t
         self.arr_nu = np.array(tmp_nu)
         self.numin = tmp_nu[0]
@@ -247,33 +275,33 @@ class xsec():
         self.loaded = True
         return self
 
-        
-    # Read source file 
+
+    # Read source file
     def read(self, p=None, t=None, nu_arr=None, k_arr=None, numin=0, numax=np.inf, dnu=0.0):
         match self.source:
             case "dace":   self.readbin(numin=numin, numax=numax, dnu=dnu)
-            case "hitran": self.readxsc(numin=numin, numax=numax, dnu=dnu)
-            case "exomol": self.readsigma(numin=numin, numax=numax, dnu=dnu)
-            case "direct": self.readdirect(p,t,nu_arr,k_arr,numin=numin, numax=numax, dnu=dnu)
+            #case "hitran": self.readxsc(numin=numin, numax=numax, dnu=dnu)
+            #case "exomol": self.readsigma(numin=numin, numax=numax, dnu=dnu)
+            #case "direct": self.readdirect(p,t,nu_arr,k_arr,numin=numin, numax=numax, dnu=dnu)
         return self
-    
+
     # Return cross-section in units of cm2.molecule-1
     def cross_cm2_per_molec(self):
         if self.dummy: print("WARNING: Accessing kabs of dummy xsec object!")
         return np.array(self.arr_k[:]) * self.mmw * 1000.0 / phys.N_av
-    
+
     # Return cross-section in units of cm2.g-1
     def cross_cm2_per_gram(self):
         if self.dummy: print("WARNING: Accessing kabs of dummy xsec object!")
         return np.array(self.arr_k[:])
-    
+
     # Return cross-section in units of cm2.g-1
     def cross_m2_per_kg(self):
         return 100.0 * self.cross_cm2_per_gram()
 
     # Write to a HITRAN-formatted xsc file in the given folder
     def writexsc(self, dir:str):
-        
+
         # File stuff
         if not self.loaded:
             raise Exception("Cannot write data because xsec object is empty!")
@@ -297,29 +325,29 @@ class xsec():
         head += str("%7.2f"  % self.t)
         head += str("%6.2f"  % ptorr)      # pressure in Torr
         head += str("%10.3e" % k_max)      # maximum xsec
-        head += str("%5.3f"  % ires)       # instrument resolution 
+        head += str("%5.3f"  % ires)       # instrument resolution
         head += str("%15s"   % self.form)  # common name
-        head += str("    ")                # dummy 
+        head += str("    ")                # dummy
         head += str("%3s"    % broad)      # broadener
-        head += str("%3d"    % source)     # source of data 
+        head += str("%3d"    % source)     # source of data
 
-        # Construct filename 
+        # Construct filename
         f = "%s_%4.1f-%3.2f_%.1f-%.1f_%d.xsc" % (self.form, self.t, ptorr, self.numin, self.numax, source)
 
-        # Open and write file 
+        # Open and write file
         fpath = dir+"/"+f
         with open(fpath, "w") as hdl:
 
             # Write header
             hdl.write(head + "\n")
 
-            # Write data 
+            # Write data
             counter = 0
             for k in self.cross_cm2_per_molec():
                 counter += 1
 
                 hdl.write("%10.3e" % k)
-                
+
                 if counter == 10:
                     counter = 0
                     hdl.write("\n")
@@ -331,7 +359,8 @@ class xsec():
 
     # Plot cross-section versus wavenumber (and optionally save to file)
     # `units` sets the cross-section units (0: cm2/g, 1: cm2/molecule, 2:m2/kg)
-    def plot(self, yunits=1, fig=None, ax=None, show=True, saveout="", xmin=None, xmax=1e4, label=""):
+
+    def plot(self, yunits=1, fig=None, ax=None, show=True, saveout="plot_xsec_wavenumber", xmin=None, xmax=1e4, label="xsec"):
         import matplotlib.pyplot as plt
 
         if not self.loaded:
@@ -371,12 +400,20 @@ class xsec():
             ylbl = "Cross-section [m$^2$ kg$^{-1}$]"
         else:
             raise Exception("Invalid unit choice for plot")
-        
+
         xarr = self.get_nu()[xmin_idx:xmax_idx]
         yarr = yarr[xmin_idx:xmax_idx]
-        
-        ax.plot(xarr, yarr, lw=lw, color=col, label=label)
 
+        import src.nogit_uvspectra as UV
+        formula = 'CO2'
+        wavenumber, xsec = UV.readUV(formula)
+
+        nu_UV = np.array(wavenumber)
+        xsec_UV = np.array(xsec)
+
+        ax.plot(xarr, yarr, lw=lw, color=col, label=label)
+        ax.plot(nu_UV, xsec_UV, color = 'r')
+        ax.set_yscale('log')
         ax.set_ylabel(ylbl)
         ax.set_xlabel("Wavenumber [cm$^{-1}$]")
 
@@ -388,12 +425,11 @@ class xsec():
             print("Saving plot to '%s'"%save_path)
             utils.rmsafe(save_path)
             fig.savefig(save_path, bbox_inches="tight")
-            show=False
+            show=True
             plt.close()
 
         if show:
             plt.show()
-            return 
+            return
         else:
             return fig,ax
-

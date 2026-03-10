@@ -26,6 +26,8 @@ For further details please refer to the file COPYRIGHT.txt which you should have
 
 `src/` contains the source code in Fortran 95 (.f90) and a few remaining in Fortran 77 (.f).
 
+`docs/` contains the user guide and technical guide for the ES code (start here for detailed theory and input formats).
+
 `make/` contains the Makefile which then accesses the various `Mk_*` files.
 
 `sbin/` contains scripts that can be used to run the fortran routines.
@@ -36,9 +38,9 @@ For further details please refer to the file COPYRIGHT.txt which you should have
 
 `idl/` and `python/` contain scripts to generate atmospheric profiles etc in netCDF format to be used as input for the radiation code (`l_run_cdf`).
 
-`docs/` contain the user guide and technical guide for the ES code.
-
 `spectraltools/` contains new addons to the code which allow for streamlined and flexible creation of spectral files from precomputed cross-sections.
+
+**Prerequisites:** Fortran 95 compiler (e.g., ifort, gfortran), netCDF development headers/tools, and standard build utilities (`make`, `bash`).
 
 ### 2) Compiling the source code externally
 
@@ -47,6 +49,15 @@ The following commands can be run to build the suite and setup your path to the 
 1. `./configure`   
 2. `./build_code`             
 3. `source ./set_rad_env`      
+
+Quick verification (after the steps above):
+
+```bash
+cd examples
+man Cl_run_cdf        # confirm man pages are on PATH
+../sbin/Cl_run_cdf ./example_cdl/standard_atmosphere.cdl
+```
+You should see output netCDF files in the example directory if the toolchain is configured correctly.
 
 ### 3) Running the code
 
@@ -73,7 +84,7 @@ Auxillary routines for format conversion, interpolation etc:
 
 These scripts are a command line interface to interactive routines in the `bin/` directory. These routines may be run directly if desired (eg. l_run_cdf).
 
-It is very useful to study the examples/ directory for common usage of the code.
+It is very useful to study the `examples/` directory for common usage of the code.
 
 
 ### 4) Tested compilers

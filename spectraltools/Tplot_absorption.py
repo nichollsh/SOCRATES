@@ -1,7 +1,7 @@
-#!/usr/bin/env python3 
+#!/usr/bin/env python3
 # Plot absorption spectrum
 
-# Import local files 
+# Import local files
 import src.cross as cross
 import src.utils as utils
 
@@ -37,7 +37,6 @@ def main(formula:str, source:str, target_p:str, target_t:str, yunits:str, saveas
     xc.read()
     xc.plot(yunits=yunits_int, saveout=saveas)
 
-
 # Run main function
 if __name__ == "__main__":
 
@@ -50,8 +49,8 @@ if __name__ == "__main__":
     parser.add_argument('--saveas', type=str, default="", help='Save plot under this name')
 
     args = parser.parse_args()
-    
-    
+
+
     main(args.absorber,   # absorber
          args.source,     # database
          args.pres,       # target pressure [bar]

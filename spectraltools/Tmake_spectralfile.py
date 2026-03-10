@@ -10,23 +10,29 @@ import src.phys as phys
 import src.netcdf as netcdf
 import os, glob
 import numpy as np
+import time
 
 def main():
 
     # ------------ PARAMETERS ------------
-    source = "dace"             # Source database (DO NOT CHANGE)
-    vols = ["H2O"] #, "H2", "CO2", "CO", "CH4", "N2", "NH3", "SO2", "N2O", "O3", "HCN", "H2S"]   # List of gases
-    alias = "test"         # Alias for this spectral file
-    nband = 128                 # Number of wavenumber bands
-    drops = True  # include water droplet scattering?
-    method = 3     # band selection method
-    numax = 1000  # clip to this maximum wavenumber [cm-1]
-    numin = 1.0    # clip to this minimum wavenumber [cm-1]
-    dnu   = 0.0    # downsample to this wavenumber resolution [cm-1]
-    preNC = False   # use pre-existing netCDF files in output/ if they are found
+    source = "dace"         # Source database (DO NOT CHANGE)
+    vols = ["H2O", "CO2", "SO2", "H2S", "H2", "CO", "CH4", "HCN", "N2O", "N2", "NH3", "O3"]   # List of gases
+    alias = "Test"          # Alias for this spectral file
+    UV = True               # Includes the UV range wavenumbers and cross-sections
+    nband = 256             # Number of wavenumber bands
+    drops = True            # Include water droplet scattering?
+    method = 3              # Band selection method
+    numax = 100000.0        # Clip to this maximum wavenumber [cm-1]
+    numin = 1.0             # Clip to this minimum wavenumber [cm-1]
+    dnu   = 1.0             # Downsample to this wavenumber resolution [cm-1]
+    preNC = False           # Use pre-existing netCDF files in output/ if they are found
+    xaxis = 'wavelength'    # Plotting axis: wavelength [nm] or wavenumber [cm-1]
 
-    tgt_p = np.logspace(-3.5, 3, 4)
-    tgt_t = np.linspace(100.0, 2895.0, 3)
+    #tgt_p = np.logspace(-3.5, 3, 30)
+    #tgt_t = np.linspace(100.0, 2895.0, 30)
+
+    tgt_p = np.logspace(-3.5, 3, 5)
+    tgt_t = np.linspace(100.0, 2895.0, 5)
 
     # P_grid_low  = np.logspace(-6, -2, num=5, endpoint=False)
     # P_grid_high = np.logspace(-2, 3, num=45, endpoint=True)
@@ -34,11 +40,6 @@ def main():
     # tgt_t = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1200.0, 1400.0, 1600.0, 1800.0, 2000.0, 2250.0, 2500.0, 2750.0, 2900.0]
 
     # ------------------------------------
-
-
-
-
-
     # ------------ EXECUTION -------------
     # Check volatile names
     for i in range(len(vols)):
@@ -95,7 +96,8 @@ def main():
         #     read first file
         formula_path = os.path.join(utils.dirs[source], v+"/")
         temp_xc = cross.xsec(v, source, dace.list_files(formula_path)[0])
-        temp_xc.read(numin=numin, numax=numax, dnu=dnu)
+        temp_xc.read(UV, numin=numin, numax=numax, dnu=dnu)
+        temp_xc.plot(alias, UV, xaxis, yunits=0)
 
         #     get numin, numax
         vol_numin = np.amin(temp_xc.get_nu())
@@ -120,7 +122,6 @@ def main():
     numax = min(numax, dat_numax)
     print("    numin, numax set to %.1f, %.1f cm-1 \n"%(numin, numax)) # Set the nu limits to encompass all volatile nus (least restrictive)
 
-
     # ===========
     # Determine p,t grid using last of the absorbers
     formula_path = os.path.join(utils.dirs[source], vols[-1]+"/")
@@ -129,8 +130,7 @@ def main():
 
     # ===========
     # Get nu array for required range and resolution (also using last absorber)
-    nu_arr = cross.xsec(vols[-1], source, dace.list_files(formula_path)[0]).read(numin=numin, numax=numax, dnu=dnu).get_nu()
-
+    nu_arr = cross.xsec(vols[-1], source, dace.list_files(formula_path)[0]).read(UV, numin=numin, numax=numax, dnu=dnu).get_nu()
 
     # ===========
     # Determine bands
@@ -193,7 +193,7 @@ def main():
             raise Exception("Could not map '%s' files to '%s' files" % (v, vols[-1]))
 
         # Write netCDF from BIN files
-        dnu_this = netcdf.write_ncdf_from_grid(ncp, v, source, arr_p, arr_t, files, dnu=dnu, numin=numin, numax=numax)
+        dnu_this = netcdf.write_ncdf_from_grid(UV, ncp, v, source, arr_p, arr_t, files, dnu=dnu, numin=numin, numax=numax)
 
         # Check resolution
         if (iv > 0) and (not np.isclose(dnu_last, dnu_this)):
@@ -226,7 +226,11 @@ def main():
 
 if __name__ == "__main__":
     utils.checkenv()
+    start = time.perf_counter()
     print("Hello\n")
     main()
+    end = time.perf_counter()
+    elapsed = (end-start)
+    print('Time elapsed: ', elapsed//3600, 'hours', "%.2f"%((elapsed%3600)//60), 'minutes.')
     print("Goodbye")
     exit(0)

@@ -120,7 +120,7 @@ class xsec():
 
         ### UV ADD-ON ###
         # Reads the UV files from the moleculesUV folder
-        def readUV(formula:str, tmp_nu:list, tmp_k:list, res:float, wavelength_min=100):
+        def readUV(formula:str, tmp_nu:list, tmp_k:list, res:float, wavenumber_min:float): # wvl in 100 nm
 
             # Check if folder exists
             folder = os.path.join(utils.dirs["moleculesUV"])
@@ -129,7 +129,15 @@ class xsec():
 
             path = os.path.join(folder, formula+'.txt')
             if not os.path.exists(path):
-                return print("No UV file, skipping.")
+
+                # Pad the values for files that do not contain UV
+                nu_add = np.arange(tmp_nu[-1], wavenumber_min, 0.01)
+                xsec_add = np.full(nu_add.size, 1e-27)
+
+                tmp_nu = np.concatenate((tmp_nu, nu_add))
+                tmp_k = np.concatenate((tmp_k, xsec_add))
+
+                return tmp_nu, tmp_k
 
             data = np.loadtxt(path)
             nu_UV = data[:, 0]
@@ -141,12 +149,11 @@ class xsec():
                 raise Exception("Wavenumber resolution mismatch. Either file size is wrong, or resolution is not %g cm-1" % res)
 
             # Filter and return the wavenumbers and cross-sections in the range between the
-            # wavelength minimum (range start) and the first DACE value (tmp_nu)
-            wavenumber_min = 1e7/wavelength_min
+            # wavenumber minimum (range start) and the first DACE value (tmp_nu)
 
-            ## If the minimum wavelength is bigger than the first value of the UV file, then
+            ## If the minimum wavenumber is bigger than the first value of the UV file, then
             ## cut at that minimum
-            if nu_UV[-1] < wavelength_min:
+            if nu_UV[-1] > wavenumber_min:
                 mask = (nu_UV <= wavenumber_min) & (nu_UV >= tmp_nu[-1])
 
                 nu_new = nu_UV[mask]
@@ -176,7 +183,8 @@ class xsec():
 
         if UV:
             try:
-                tmp_nu, tmp_k = readUV(self.form, tmp_nu, tmp_k, res)
+                wavenumber_min = 100000
+                tmp_nu, tmp_k = readUV(self.form, tmp_nu, tmp_k, res, wavenumber_min)
             except TypeError:
                 None
 
@@ -302,7 +310,7 @@ class xsec():
         self.t = t
         self.arr_nu = np.array(tmp_nu)
         self.numin = tmp_nu[0]
-        self.numax = tmp_nu[1]
+        self.numax = tmp_nu[-1]
         self.nbins = len(tmp_nu)
         self.arr_k = np.array(tmp_k)
         self.arr_k = np.clip(self.arr_k, a_min=self.k_clip, a_max=None)
@@ -394,7 +402,7 @@ class xsec():
     # Plot cross-section versus wavenumber (and optionally save to file)
     # `units` sets the cross-section units (0: cm2/g, 1: cm2/molecule, 2:m2/kg)
 
-    def plot(self, alias:str, UV:bool, xaxis:str, lim:list, yunits=1, fig=None, ax=None, show=True, saveout="plot_"):
+    def plot(self, alias:str, UV:bool, xaxis:str, lim:list, yunits=0, fig=None, ax=None, show=True, saveout="plot_"):
         import matplotlib.pyplot as plt
 
         if not self.loaded:
@@ -419,7 +427,7 @@ class xsec():
         else:
             raise Exception("Invalid unit choice for plot")
 
-        if xaxis == 'wavelength':
+        if xaxis == 'wavelength': # Assumes that user input in wavelength [nm] units
             # Crop data
             if (xmin == None):
                 xmin = self.numax # The minimum value in wavelength is the maximum value in wavenumber
@@ -465,6 +473,8 @@ class xsec():
 
             xarr = self.get_nu()[xmin_idx:xmax_idx]
             yarr = yarr[xmin_idx:xmax_idx]
+
+            print('here', xmin, xmax, xarr[0], xarr[-1])
 
             ax.set_xlabel("Wavenumber [cm-1]", fontsize=18)
             ax.set_xlim(xmin, xmax)

@@ -26,14 +26,14 @@ def main():
     numin = 1.0             # Clip to this minimum wavenumber [cm-1]
     dnu   = 1.0             # Downsample to this wavenumber resolution [cm-1]
     preNC = False           # Use pre-existing netCDF files in output/ if they are found
-    xaxis = 'wavenumber'    # Plotting axis: wavelength [nm] or wavenumber [cm-1]
-    lim = [None, None]      # Limits for the x-axis, example: if xaxis = wavenumber: [None, 100000], if xaxis = wavelength: [None, 1000], the whole spectra: [None, None]
+    xaxis = 'wavelength'    # Plotting axis: wavelength [nm] or wavenumber [cm-1]
+    lim = [100, 1000]      # Limits for the x-axis, example: if xaxis = wavenumber: [None, 100000], if xaxis = wavelength: [100, 1000]
 
     #tgt_p = np.logspace(-3.5, 3, 30)
     #tgt_t = np.linspace(100.0, 2895.0, 30)
 
-    tgt_p = np.logspace(-3.5, 3, 10)
-    tgt_t = np.linspace(100.0, 2895.0, 10)
+    tgt_p = np.logspace(-3.5, 3, 5)
+    tgt_t = np.linspace(100.0, 2895.0, 5)
 
     # P_grid_low  = np.logspace(-6, -2, num=5, endpoint=False)
     # P_grid_high = np.logspace(-2, 3, num=45, endpoint=True)

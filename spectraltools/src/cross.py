@@ -120,7 +120,7 @@ class xsec():
 
         ### UV ADD-ON ###
         # Reads the UV files from the moleculesUV folder
-        def readUV(formula:str, tmp_nu:list, tmp_k:list, res:float, wavenumber_min:float): # wvl in 100 nm
+        def readUV(formula:str, tmp_nu:list, tmp_k:list, res:float, wavenumber_min:float):
 
             # Check if folder exists
             folder = os.path.join(utils.dirs["moleculesUV"])

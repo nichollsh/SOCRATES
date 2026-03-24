@@ -1,8 +1,12 @@
 
 # SOCRATES
-**S**uite **O**f **C**ommunity **RA**diative **T**ransfer codes based on **E**dwards and **S**lingo.     
 
 Rehosted from the original Met Office source [1] with modifications by Harrison Nicholls.
+
+> [!WARNING]
+> This repository is deprecated. Please use the [FormingWorlds/SOCRATES](https://github.com/FormingWorlds/SOCRATES/) fork instead.
+
+Last updated: 24 March 2026
 
 ### Contents
 0. Licence

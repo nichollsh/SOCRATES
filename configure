@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Script to generate Mk_cmd for socrates
 
+# Warning
+echo "This repository is deprecated. Please refer to https://github.com/FormingWorlds/SOCRATES/"
+sleep 3
+echo "Version: $(head -n1 version)"
+
 # Optimisation flags options (uncomment as required)
 optim="-Ofast -march=native"
 # optim="-O3"
@@ -67,4 +72,7 @@ echo ".SUFFIXES: \$(SUFFIXES) .f90 " >> $genpath
 echo " " >> $genpath
 
 # End 
+echo "Configure step complete"
 exit 0
+
+

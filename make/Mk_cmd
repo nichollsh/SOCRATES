@@ -1,6 +1,6 @@
 # Generated automatically
-# System: Linux norma1.intra.astro.rug.nl 5.14.0-570.58.1.el9_6.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Oct 31 13:55:05 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux 
-# Date: Mon Dec  8 02:01:11 PM CET 2025 
+# System: Linux delphinium 6.19.8-200.fc43.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Mar 13 22:06:06 UTC 2026 x86_64 GNU/Linux 
+# Date: Tue 24 Mar 08:36:32 GMT 2026 
  
 FORTCOMP        = /usr/bin/gfortran -Ofast -march=native -fPIC  -c 
 LINK            = /usr/bin/gfortran -Ofast -march=native -fPIC  
